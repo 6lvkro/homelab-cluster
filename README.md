@@ -36,7 +36,7 @@
 
 2-platform/            # Tier 2: 플랫폼 공통 서비스
 ├── security/          # Pocket ID, OAuth2-Proxy
-├── networking/        # AdGuard, CoreDNS
+├── networking/        # AdGuard, CoreDNS, Cloudflared
 ├── observability/     # Prometheus, Grafana, Exporters
 ├── backup/            # Velero, PostgreSQL 백업
 ├── ci/                # Gitea, Act Runner

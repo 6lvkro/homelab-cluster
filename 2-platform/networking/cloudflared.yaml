@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared
+  namespace: default
+  labels:
+    app: cloudflared
+    strategy-rolling: ""
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloudflared
+  template:
+    metadata:
+      labels:
+        app: cloudflared
+    spec:
+      containers:
+        - name: cloudflared
+          image: cloudflare/cloudflared:2026.3.0
+          args:
+            - tunnel
+            - --no-autoupdate
+            - --protocol
+            - http2
+            - --retries
+            - "10"
+            - --metrics
+            - 0.0.0.0:2000
+            - run
+            - --token
+            - $(TUNNEL_TOKEN)
+          ports:
+            - containerPort: 2000
+              name: metrics
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: cloudflared
+                  key: token
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 60
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"

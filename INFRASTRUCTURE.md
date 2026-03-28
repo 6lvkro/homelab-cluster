@@ -35,7 +35,7 @@ PG + pgvector, Redis
 | 카테고리      | 서비스                                                                                         |
 | :------------ | :--------------------------------------------------------------------------------------------- |
 | Security      | Pocket ID (OIDC IdP), OAuth2-Proxy (ForwardAuth)                                               |
-| Networking    | AdGuard (DNS), CoreDNS                                                                         |
+| Networking    | AdGuard (DNS), CoreDNS, Cloudflared (Tunnel)                                                   |
 | Observability | Prometheus, Grafana, Blackbox Exporter, kube-state-metrics, Node Exporter, NVIDIA GPU Exporter |
 | Backup        | Velero (Helm), PostgreSQL Backup/Restore-test, platform-rclone (B2 sync)                       |
 | CI            | Gitea, Act Runner (amd64/arm64)                                                                |

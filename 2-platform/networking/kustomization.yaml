@@ -3,6 +3,8 @@ kind: Kustomization
 namespace: default
 resources:
   - adguard.yaml
+  - cloudflared.yaml
+  - secrets.yaml
 configMapGenerator:
   - name: coredns-custom
     namespace: kube-system
