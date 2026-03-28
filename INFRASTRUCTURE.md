@@ -12,7 +12,7 @@ git push
   -> Flux가 최종 매니페스트를 클러스터에 적용
 ```
 
-- **변수 소스(비민감)**: `flux-system` 네임스페이스의 `cluster-config` ConfigMap (CI에서 [`.env.config`](.env.config)로 동기화)
+- **변수 소스(비민감)**: `flux-system` 네임스페이스의 `cluster-config` ConfigMap (CI에서 `.env.config`로 동기화)
 - **변수 소스(민감)**: `flux-system` 네임스페이스의 `cluster-secrets` Secret ([Infisical Operator](0-core/flux-system/infisical-secret.yaml)가 동기화)
 
 ## 서비스 카탈로그

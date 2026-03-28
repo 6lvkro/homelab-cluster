@@ -105,23 +105,27 @@ sudo exportfs -ra
 
 선행: [NVIDIA Container Toolkit 설치](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 
+부팅 시 CDI spec을 재생성하고 k3s-agent를 재시작하여 Device Plugin이 GPU를 등록하도록 한다.
+CDI 재생성 없이 k3s-agent만 시작되면 GPU allocatable이 0으로 보고되어 GPU Pod가 Pending 상태에 빠진다.
+
 ```bash
-# /etc/systemd/system/nvidia-cdi-generate.service 생성
-sudo cat > /etc/systemd/system/nvidia-cdi-generate.service << EOF
+sudo tee /etc/systemd/system/k3s-gpu-init.service > /dev/null << 'EOF'
 [Unit]
-Description=Generate NVIDIA CDI spec
-After=multi-user.target
+Description=Regenerate NVIDIA CDI spec and restart k3s-agent
+After=k3s-agent.service nvidia-persistenced.service
+Requires=k3s-agent.service
 
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+ExecStartPost=/bin/systemctl restart k3s-agent
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
 sudo systemctl daemon-reload
-sudo systemctl enable --now nvidia-cdi-generate
+sudo systemctl enable k3s-gpu-init
 ```
 
 ### 3-3. 레지스트리 인증
