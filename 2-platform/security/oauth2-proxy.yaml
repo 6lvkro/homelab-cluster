@@ -76,7 +76,7 @@ spec:
   ports:
     - name: web
       port: 4180
-      targetPort: http
+      targetPort: web
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
