@@ -1,0 +1,31 @@
+# .env.config -> cluster-config ConfigMap 동기화
+name: Sync cluster-config
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".env.config"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: linux-amd64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        run: |
+          if [ ! -x /cache/bin/kubectl ]; then
+            mkdir -p /cache/bin
+            ARCH=$(dpkg --print-architecture)
+            wget -qO /cache/bin/kubectl "https://dl.k8s.io/release/$(wget -qO- https://dl.k8s.io/release/stable.txt)/bin/linux/${ARCH}/kubectl"
+            chmod +x /cache/bin/kubectl
+          fi
+          echo "/cache/bin" >> "$GITHUB_PATH"
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG_B64 }}" | base64 -d > ~/.kube/config
+
+      - name: Sync and reconcile
+        run: .gitea/scripts/sync-config.sh

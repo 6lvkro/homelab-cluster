@@ -1,0 +1,25 @@
+# gitea main -> public 미러링
+name: Mirror public
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  mirror:
+    runs-on: linux-amd64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build and push public
+        env:
+          GITHUB_COM_TOKEN: ${{ secrets.GITHUB_COM_TOKEN }}
+          MIRROR_REPO: ${{ vars.MIRROR_REPO }}
+        run: .gitea/scripts/mirror-public.sh
+
+      - name: Cleanup
+        run: git checkout main

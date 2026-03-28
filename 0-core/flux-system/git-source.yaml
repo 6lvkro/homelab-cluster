@@ -1,0 +1,13 @@
+# Flux GitRepository -- homelab 클러스터 소스
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: homelab
+  namespace: flux-system
+spec:
+  interval: 1m
+  ref:
+    branch: main
+  secretRef:
+    name: flux-git-auth
+  url: http://gitea.default.svc:3000/${DEFAULT_USERNAME}/homelab-cluster.git

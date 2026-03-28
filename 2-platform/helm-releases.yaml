@@ -1,0 +1,176 @@
+# 2-platform Helm Releases -- Loki, Velero, Infisical, Secrets Operator
+# 플랫폼 공통 서비스 (로깅, 백업, 시크릿 관리)
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: loki
+  namespace: flux-system
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: loki
+      version: "2.16.0"
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+  releaseName: loki
+  targetNamespace: default
+  storageNamespace: default
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    grafana:
+      enabled: false
+    loki:
+      image:
+        tag: 2.9.3
+      config:
+        table_manager:
+          retention_deletes_enabled: true
+          retention_period: 168h
+      livenessProbe:
+        initialDelaySeconds: 60
+      readinessProbe:
+        initialDelaySeconds: 60
+    prometheus:
+      alertmanager:
+        persistentVolume:
+          enabled: false
+      enabled: false
+      server:
+        persistentVolume:
+          enabled: false
+    promtail:
+      tolerations:
+        - key: node-role
+          operator: Equal
+          value: compute
+          effect: NoSchedule
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: velero
+  namespace: flux-system
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: velero
+      version: "11.4.0"
+      sourceRef:
+        kind: HelmRepository
+        name: vmware-tanzu
+  releaseName: velero
+  targetNamespace: velero
+  storageNamespace: velero
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    configuration:
+      backupStorageLocation:
+        - name: default
+          provider: aws
+          bucket: ${B2_VELERO_BUCKET}
+          validationFrequency: 1h
+          config:
+            region: ${B2_REGION}
+            s3ForcePathStyle: true
+            s3Url: ${B2_ENDPOINT}
+          credential:
+            name: velero-s3-credentials
+            key: cloud
+    initContainers:
+      - name: velero-plugin-for-aws
+        image: velero/velero-plugin-for-aws:v1.11.1
+        volumeMounts:
+          - mountPath: /target
+            name: plugins
+    deployNodeAgent: true
+    nodeAgent:
+      podVolumePath: /var/lib/kubelet/pods
+      privileged: true
+    credentials:
+      useSecret: false
+    upgradeCRDs: false
+    snapshotsEnabled: false
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: infisical
+  namespace: flux-system
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: infisical-standalone
+      version: "1.7.5"
+      sourceRef:
+        kind: HelmRepository
+        name: infisical
+  releaseName: infisical
+  targetNamespace: infisical
+  storageNamespace: infisical
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    infisical:
+      replicaCount: 1
+      envSecretRefs:
+        - infisical-secrets
+      resources:
+        requests:
+          cpu: 50m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 1Gi
+    ingress-nginx:
+      enabled: false
+    ingress:
+      enabled: false
+    postgresql:
+      enabled: false
+    redis:
+      enabled: false
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: secrets-operator
+  namespace: flux-system
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: secrets-operator
+      version: "v0.10.27"
+      sourceRef:
+        kind: HelmRepository
+        name: infisical
+  releaseName: secrets-operator
+  targetNamespace: infisical
+  storageNamespace: infisical
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3

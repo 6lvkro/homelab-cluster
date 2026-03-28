@@ -1,0 +1,28 @@
+# Velero Backblaze B2 인증 시크릿
+apiVersion: v1
+kind: Secret
+metadata:
+  name: velero-s3-credentials
+  namespace: velero
+stringData:
+  cloud: |
+    [default]
+    aws_access_key_id = ${B2_KEY_ID}
+    aws_secret_access_key = ${B2_APPLICATION_KEY}
+---
+# Velero 일일 백업 스케줄
+# 매일 03:00에 default 네임스페이스의 모든 K8s 리소스를 백업한다.
+# PVC 데이터는 backup.velero.io/backup-volumes 어노테이션이 있는 볼륨만 kopia로 백업
+# 백업은 Backblaze B2에 저장되며 7일(168h) 후 자동 삭제
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: daily-backup
+  namespace: velero
+spec:
+  schedule: "0 18 * * *" # KST 03:00 (UTC 18:00)
+  template:
+    includedNamespaces:
+      - default
+    ttl: 168h0m0s
+    snapshotVolumes: false

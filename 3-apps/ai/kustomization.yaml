@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: default
+resources:
+  - ollama.yaml
+  - open-webui.yaml
+configMapGenerator:
+  - name: open-webui
+    literals:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - ENABLE_OAUTH_SIGNUP=true
+      - OAUTH_CLIENT_ID=${POCKET_ID_CLIENT_ID_OPENWEBUI}
+      - OPENID_PROVIDER_URL=https://${SUB_POCKET_ID}.${DOMAIN_LAN}/.well-known/openid-configuration
+      - SSL_CERT_FILE=/etc/ssl/custom/ca.crt
+      - REQUESTS_CA_BUNDLE=/etc/ssl/custom/ca.crt
+      - OAUTH_PROVIDER_NAME=Pocket ID
+      - OAUTH_MERGE_ACCOUNTS_BY_EMAIL=true
+      - TZ=${TZ}

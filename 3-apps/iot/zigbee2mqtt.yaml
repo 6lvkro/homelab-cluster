@@ -1,0 +1,133 @@
+# MQTT를 통한 Zigbee 브릿지. IoT 노드(NODE_IOT)의 USB Zigbee 어댑터 필요
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: zigbee2mqtt
+  namespace: default
+  labels:
+    app: zigbee2mqtt
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-client
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zigbee2mqtt
+  namespace: default
+  labels:
+    app: zigbee2mqtt
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zigbee2mqtt
+  template:
+    metadata:
+      labels:
+        app: zigbee2mqtt
+      annotations:
+        backup.velero.io/backup-volumes: data
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: ${NODE_MASTER}
+      initContainers:
+        - name: init-config
+          image: busybox:1.37
+          command:
+            [
+              "sh",
+              "-c",
+              "[ -f /data/configuration.yaml ] || cp /config/configuration.yaml /data/configuration.yaml",
+            ]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /config
+      containers:
+        - name: zigbee2mqtt
+          image: koenkk/zigbee2mqtt:2.9.1
+          ports:
+            - containerPort: 8080
+              name: web
+          env:
+            - name: TZ
+              value: "${TZ}"
+          securityContext:
+            privileged: true  # USB Zigbee 동글 접근에 필요
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: web
+            initialDelaySeconds: 30
+            periodSeconds: 60
+          readinessProbe:
+            httpGet:
+              path: /
+              port: web
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: usb
+              mountPath: /dev/ttyACM0
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: zigbee2mqtt
+        - name: config
+          configMap:
+            name: zigbee2mqtt
+        - name: usb
+          hostPath:
+            path: ${PATH_ZIGBEE_USB}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zigbee2mqtt
+  namespace: default
+  labels:
+    app: zigbee2mqtt
+spec:
+  selector:
+    app: zigbee2mqtt
+  ports:
+    - port: 8080
+      name: web
+      targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: zigbee2mqtt
+  namespace: default
+  labels:
+    app: zigbee2mqtt
+  annotations:
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: ${SUB_Z2M}.${DOMAIN_LAN}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: zigbee2mqtt
+                port:
+                  number: 8080

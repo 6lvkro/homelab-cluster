@@ -1,0 +1,148 @@
+# 스마트홈 허브. Zigbee2MQTT, Mosquitto, Whisper, Supertonic과 연동
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: homeassistant
+  namespace: default
+  labels:
+    app: homeassistant
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-client
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: homeassistant
+  namespace: default
+  labels:
+    app: homeassistant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: homeassistant
+  template:
+    metadata:
+      labels:
+        app: homeassistant
+      annotations:
+        backup.velero.io/backup-volumes: config
+    spec:
+      hostNetwork: true # mDNS/SSDP 등 IoT 장비 검색에 필요
+      dnsPolicy: ClusterFirstWithHostNet
+      dnsConfig:
+        options:
+          - name: timeout
+            value: "2"
+          - name: attempts
+            value: "3"
+          - name: single-request-reopen
+      nodeSelector:
+        kubernetes.io/hostname: ${NODE_IOT}
+      initContainers:
+        - name: init-custom-config
+          image: busybox:1.37
+          command: ['sh', '-c', 'mkdir -p /config/custom']
+          volumeMounts:
+            - name: config
+              mountPath: /config
+      containers:
+        - name: homeassistant
+          image: ghcr.io/home-assistant/home-assistant:2026.3.4
+          env:
+            - name: TZ
+              value: "${TZ}"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+          livenessProbe:
+            tcpSocket:
+              port: 8123
+            initialDelaySeconds: 30
+            periodSeconds: 60
+          readinessProbe:
+            tcpSocket:
+              port: 8123
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          securityContext:
+            privileged: true # USB/Bluetooth 장비 접근에 필요
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: homeassistant
+              mountPath: /config/configuration.yaml
+              subPath: configuration.yaml
+            - name: dbus
+              mountPath: /run/dbus
+              readOnly: true
+            - name: localtime
+              mountPath: /etc/localtime
+              readOnly: true
+            - name: google-sa
+              mountPath: /config/google_service_account.json
+              subPath: google_service_account.json
+              readOnly: true
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: homeassistant
+        - name: homeassistant
+          configMap:
+            name: homeassistant
+        - name: dbus
+          hostPath:
+            path: /run/dbus
+        - name: localtime
+          hostPath:
+            path: /etc/localtime
+        - name: google-sa
+          secret:
+            secretName: google-sa
+            optional: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: homeassistant
+  namespace: default
+  labels:
+    app: homeassistant
+spec:
+  selector:
+    app: homeassistant
+  ports:
+    - port: 8123
+      name: web
+      targetPort: 8123
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: homeassistant
+  namespace: default
+  labels:
+    app: homeassistant
+    auth: self
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: ${SUB_HOMEASSISTANT}.${DOMAIN_LAN}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: homeassistant
+                port:
+                  number: 8123

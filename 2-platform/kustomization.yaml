@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+components:
+  - ../components/revision-history-limit
+  - ../components/strategy-recreate
+  - ../components/oauth-ingress
+
+resources:
+  - helm-releases.yaml
+  - backup
+  - ci
+  - networking
+  - observability
+  - security
+  - storage

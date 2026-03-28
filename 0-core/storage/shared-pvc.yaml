@@ -1,0 +1,32 @@
+# NAS 공유 PVC
+# FileBrowser, Jellyfin, qBittorrent, Samba가 공유하는 NFS 볼륨
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-media
+  namespace: default
+  labels:
+    app: shared-media
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-client
+  resources:
+    requests:
+      storage: 1Ti
+---
+# 공유 참조 오디오 PVC (TTS/음성 클로닝용)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-misc
+  namespace: default
+  labels:
+    app: shared-misc
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-client
+  resources:
+    requests:
+      storage: 50Gi

@@ -1,0 +1,83 @@
+# NVIDIA GPU 디바이스 플러그인
+# GPU 노드에 nvidia.com/gpu 리소스 등록 (time-slicing 8슬롯)
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: nvidia
+handler: nvidia
+scheduling:
+  nodeSelector:
+    kubernetes.io/hostname: ${NODE_COMPUTE}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nvidia-device-plugin
+  namespace: kube-system
+  labels:
+    app: nvidia-device-plugin
+data:
+  config.yaml: |
+    version: v1
+    flags:
+      migStrategy: none
+      failOnInitError: false
+    sharing:
+      timeSlicing:
+        resources:
+        - name: nvidia.com/gpu
+          replicas: 8
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nvidia-device-plugin-daemonset
+  namespace: kube-system
+  labels:
+    app: nvidia-device-plugin
+spec:
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      name: nvidia-device-plugin-ds
+  template:
+    metadata:
+      labels:
+        name: nvidia-device-plugin-ds
+    spec:
+      runtimeClassName: nvidia
+      nodeSelector:
+        kubernetes.io/hostname: ${NODE_COMPUTE}
+      priorityClassName: system-node-critical
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+        - key: node-role
+          operator: Equal
+          value: compute
+          effect: NoSchedule
+      containers:
+        - name: nvidia-device-plugin-ctr
+          image: nvcr.io/nvidia/k8s-device-plugin:v0.19.0
+          env:
+            - name: FAIL_ON_INIT_ERROR
+              value: "false"
+            - name: DEVICE_LIST_STRATEGY
+              value: "envvar"
+            - name: CONFIG_FILE
+              value: "/config/config.yaml"
+          securityContext:
+            privileged: true  # GPU 장치 접근에 필요
+          volumeMounts:
+            - name: device-plugin
+              mountPath: /var/lib/kubelet/device-plugins
+            - name: config
+              mountPath: /config
+      volumes:
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+        - name: config
+          configMap:
+            name: nvidia-device-plugin

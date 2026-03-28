@@ -1,0 +1,78 @@
+# MQTT 브로커. IoT 장비와 Home Assistant 간 메시지 중계
+# hostNetwork 사용 -- IoT 장비가 노드 IP로 직접 접근
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mosquitto
+  namespace: default
+  labels:
+    app: mosquitto
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mosquitto
+  template:
+    metadata:
+      labels:
+        app: mosquitto
+    spec:
+      hostNetwork: true  # IoT 장비가 노드 IP:1883으로 직접 접근
+      dnsPolicy: ClusterFirstWithHostNet  # hostNetwork에서도 클러스터 DNS 사용
+      nodeSelector:
+        kubernetes.io/hostname: ${NODE_IOT}
+      containers:
+        - name: mosquitto
+          image: eclipse-mosquitto:2.0.22
+          env:
+            - name: TZ
+              value: "${TZ}"
+          ports:
+            - containerPort: 1883
+              name: mqtt
+            - containerPort: 9001
+              name: websocket
+          resources:
+            requests:
+              cpu: "20m"
+              memory: "32Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          livenessProbe:
+            tcpSocket:
+              port: 1883
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: 1883
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /mosquitto/config/mosquitto.conf
+              subPath: mosquitto.conf
+            - name: data
+              mountPath: /mosquitto/data
+      volumes:
+        - name: config
+          configMap:
+            name: mosquitto
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mosquitto
+  namespace: default
+  labels:
+    app: mosquitto
+spec:
+  selector:
+    app: mosquitto
+  ports:
+    - port: 1883
+      name: mqtt
+      targetPort: 1883

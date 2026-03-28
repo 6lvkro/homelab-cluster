@@ -1,0 +1,117 @@
+# 고성능 노드(NODE_COMPUTE) 고정(GPU), Open WebUI에서 내부 호출
+# NOTE: Velero 미적용 -- 모델은 ollama pull로 재다운로드 가능
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama
+  namespace: default
+  labels:
+    app: ollama
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 500Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: default
+  labels:
+    app: ollama
+    gpu: ""
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      containers:
+        - name: ollama
+          image: ollama/ollama:0.18.2
+          ports:
+            - containerPort: 11434
+              name: web
+          env:
+            - name: OLLAMA_NUM_THREADS
+              value: "32"
+            - name: OLLAMA_MAX_VRAM
+              value: "30GiB"
+            - name: OLLAMA_NOHISTORY
+              value: "1"
+            - name: TZ
+              value: "${TZ}"
+          resources:
+            requests:
+              cpu: "2000m"
+              memory: "8Gi"
+            limits:
+              nvidia.com/gpu: 1
+          startupProbe:
+            httpGet:
+              path: /
+              port: web
+            failureThreshold: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: web
+            initialDelaySeconds: 60
+            periodSeconds: 60
+          readinessProbe:
+            httpGet:
+              path: /
+              port: web
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          volumeMounts:
+            - name: ollama-data
+              mountPath: /root/.ollama
+      volumes:
+        - name: ollama-data
+          persistentVolumeClaim:
+            claimName: ollama
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: default
+  labels:
+    app: ollama
+spec:
+  selector:
+    app: ollama
+  ports:
+    - port: 11434
+      name: web
+      targetPort: 11434
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ollama
+  namespace: default
+  labels:
+    app: ollama
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: ${SUB_OLLAMA}.${DOMAIN_LAN}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ollama
+                port:
+                  number: 11434

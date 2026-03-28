@@ -1,0 +1,80 @@
+# NVIDIA GPU Exporter -- 경량 GPU 메트릭 수집
+# compute 노드(NODE_COMPUTE) 고정
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nvidia-gpu-exporter
+  namespace: default
+  labels:
+    app: nvidia-gpu-exporter
+spec:
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: nvidia-gpu-exporter
+  template:
+    metadata:
+      labels:
+        app: nvidia-gpu-exporter
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: ${NODE_COMPUTE}
+      hostPID: true
+      tolerations:
+        - key: node-role
+          operator: Equal
+          value: compute
+          effect: NoSchedule
+      containers:
+        - name: nvidia-gpu-exporter
+          image: utkuozdemir/nvidia_gpu_exporter:1.4.1
+          ports:
+            - containerPort: 9835
+              name: metrics
+          env:
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: "all"
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
+          securityContext:
+            privileged: true  # nvidia-smi GPU 접근에 필요
+          volumeMounts:
+            - name: nvidia-lib
+              mountPath: /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1
+              readOnly: true
+            - name: nvidia-smi
+              mountPath: /usr/bin/nvidia-smi
+              readOnly: true
+            - name: host-proc
+              mountPath: /host/proc
+              readOnly: true
+      volumes:
+        - name: nvidia-lib
+          hostPath:
+            path: /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1
+        - name: nvidia-smi
+          hostPath:
+            path: /usr/bin/nvidia-smi
+        - name: host-proc
+          hostPath:
+            path: /proc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nvidia-gpu-exporter
+  namespace: default
+  labels:
+    app: nvidia-gpu-exporter
+spec:
+  selector:
+    app: nvidia-gpu-exporter
+  ports:
+    - port: 9835
+      name: metrics
+      targetPort: 9835

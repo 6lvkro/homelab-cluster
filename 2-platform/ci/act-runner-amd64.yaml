@@ -1,0 +1,114 @@
+# Gitea act_runner (AMD64) -- Actions 실행 에이전트 (amd64 네이티브)
+# COMPUTE 노드에서 실행 / DinD 내장 이미지
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: act-runner-amd64
+  namespace: default
+  labels:
+    app: act-runner-amd64
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: act-runner-amd64
+  namespace: default
+  labels:
+    app: act-runner-amd64
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: act-runner-amd64
+  template:
+    metadata:
+      labels:
+        app: act-runner-amd64
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: ${NODE_COMPUTE}
+      tolerations:
+        - key: node-role
+          operator: Equal
+          value: compute
+          effect: NoSchedule
+      containers:
+        - name: act-runner
+          image: gitea/act_runner:0.3.0-dind
+          command: ["/bin/sh", "/config/entrypoint.sh"]
+          workingDir: /data
+          securityContext:
+            privileged: true
+          env:
+            - name: GITEA_INSTANCE_URL
+              value: ${GITEA_URL}
+            - name: GITEA_RUNNER_REGISTRATION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: act-runner
+                  key: GITEA_RUNNER_REGISTRATION_TOKEN
+            - name: GITEA_RUNNER_NAME
+              value: k8s-runner-amd64
+            - name: GITEA_RUNNER_LABELS
+              value: ubuntu-latest,ubuntu-22.04,linux-amd64:host
+            - name: DOCKER_TLS_CERTDIR
+              value: ""
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+          # DinD runner -- HTTP 엔드포인트 없음, docker 데몬 상태로 헬스 체크
+          livenessProbe:
+            exec:
+              command: ["docker", "info"]
+            initialDelaySeconds: 30  # DinD dockerd 기동 대기
+            periodSeconds: 60
+          readinessProbe:
+            exec:
+              command: ["docker", "info"]
+            initialDelaySeconds: 15  # DinD dockerd 기동 대기
+            periodSeconds: 30
+          volumeMounts:
+            - name: runner-data
+              mountPath: /data
+              subPath: act-runner/amd64
+            - name: ci-cache
+              mountPath: /var/lib/docker
+              subPath: docker
+            - name: ci-cache
+              mountPath: /cache
+              subPath: deps
+            - name: runner-config
+              mountPath: /config
+              readOnly: true
+            - name: ca-cert
+              mountPath: /usr/local/share/ca-certificates/homelab-ca.crt
+              subPath: ca.crt
+              readOnly: true
+
+      volumes:
+        - name: runner-data
+          persistentVolumeClaim:
+            claimName: shared-misc
+        - name: ci-cache
+          persistentVolumeClaim:
+            claimName: act-runner-amd64
+        - name: runner-config
+          configMap:
+            name: act-runner
+        - name: ca-cert
+          secret:
+            secretName: tls
+            items:
+              - key: ca.crt
+                path: ca.crt

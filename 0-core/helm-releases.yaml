@@ -1,0 +1,116 @@
+# 0-core Helm Releases -- cert-manager, MetalLB, NFS Provisioner
+# 클러스터 기본 인프라 컴포넌트 (네트워킹, 스토리지, TLS)
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cert-manager
+  namespace: flux-system
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: cert-manager
+      version: "v1.20.0"
+      sourceRef:
+        kind: HelmRepository
+        name: jetstack
+  releaseName: cert-manager
+  targetNamespace: cert-manager
+  storageNamespace: cert-manager
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    crds:
+      enabled: true
+    dns01RecursiveNameserversOnly: true
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        memory: 128Mi
+    webhook:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          memory: 64Mi
+    cainjector:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          memory: 128Mi
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: metallb
+  namespace: flux-system
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: metallb
+      version: "0.15.3"
+      sourceRef:
+        kind: HelmRepository
+        name: metallb
+  releaseName: metallb
+  targetNamespace: metallb-system
+  storageNamespace: metallb-system
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    speaker:
+      tolerations:
+        - key: node-role
+          operator: Equal
+          value: compute
+          effect: NoSchedule
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: nfs-subdir-external-provisioner
+  namespace: flux-system
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: nfs-subdir-external-provisioner
+      version: "4.0.18"
+      sourceRef:
+        kind: HelmRepository
+        name: nfs-subdir
+  releaseName: nfs-subdir-external-provisioner
+  targetNamespace: default
+  storageNamespace: default
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    force: true
+    remediation:
+      retries: 3
+  values:
+    nfs:
+      server: ${NODE_STORAGE_IP}
+      path: ${PATH_NFS}
+    storageClass:
+      name: nfs-client
+      defaultClass: true
+      reclaimPolicy: Retain

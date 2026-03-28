@@ -1,0 +1,63 @@
+# cert-manager 자체 CA + 와일드카드 인증서
+# *.${DOMAIN_LAN} 인증서 자동 발급 및 갱신
+#
+# Flow:
+#   1. selfsigned-issuer -> root-ca Certificate (CA 인증서 생성)
+#   2. ca-issuer (root-ca 기반) -> wildcard Certificate (*.${DOMAIN_LAN} 발급)
+#   3. Traefik TLSStore가 발급된 Secret "tls"를 참조
+
+# 1. Self-signed ClusterIssuer (루트 CA 부트스트랩용)
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+# 2. CA 인증서
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: root-ca
+  namespace: cert-manager
+spec:
+  isCA: true
+  commonName: "Homelab Root CA"
+  secretName: root-ca-key-pair
+  duration: 87600h
+  renewBefore: 8760h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+---
+# 3. CA 기반 ClusterIssuer
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: homelab-ca
+spec:
+  ca:
+    secretName: root-ca-key-pair
+---
+# 4. 와일드카드 인증서
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-tls
+  namespace: default
+spec:
+  secretName: tls
+  duration: 8760h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  dnsNames:
+    - "${DOMAIN_LAN}"
+    - "*.${DOMAIN_LAN}"
+  issuerRef:
+    name: homelab-ca
+    kind: ClusterIssuer

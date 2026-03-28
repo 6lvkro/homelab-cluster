@@ -1,0 +1,105 @@
+# NFS 공유 스토리지를 SMB 프로토콜로 LAN 클라이언트에 노출
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: samba
+  namespace: default
+  labels:
+    app: samba
+    strategy-rolling: ""
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: samba
+  template:
+    metadata:
+      labels:
+        app: samba
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: ${NODE_STORAGE}
+      containers:
+        - name: samba
+          image: ghcr.io/servercontainers/samba:smbd-wsdd2-a3.22.1-s4.21.4-r4
+          ports:
+            - containerPort: 445
+              name: smb
+            - containerPort: 139
+              name: netbios
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: TZ
+              value: "${TZ}"
+            - name: ACCOUNT_${DEFAULT_USERNAME}
+              value: "${DEFAULT_USERNAME}"
+            - name: UID_${DEFAULT_USERNAME}
+              value: "1000"
+            - name: PASSWORD_${DEFAULT_USERNAME}
+              valueFrom:
+                secretKeyRef:
+                  name: samba
+                  key: DEFAULT_PASSWORD
+            - name: SAMBA_VOLUME_CONFIG_Media
+              value: "[Media]; path=/mnt; valid users=${DEFAULT_USERNAME}; guest ok=no; read only=no"
+            - name: SAMBA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: samba
+                  key: DEFAULT_PASSWORD
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  [
+                    "/bin/sh",
+                    "-c",
+                    "sleep 5 && echo -e \"$DEFAULT_PASSWORD\\n$DEFAULT_PASSWORD\" | smbpasswd -s -a ${DEFAULT_USERNAME}",
+                  ]
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            tcpSocket:
+              port: 445
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: 445
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: media
+              mountPath: /mnt
+      volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: shared-media
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: samba
+  namespace: default
+  labels:
+    app: samba
+spec:
+  type: LoadBalancer
+  loadBalancerIP: ${LB_SAMBA_IP}
+  selector:
+    app: samba
+  ports:
+    - name: smb
+      port: 445
+      targetPort: 445
+    - name: netbios
+      port: 139
+      targetPort: 139

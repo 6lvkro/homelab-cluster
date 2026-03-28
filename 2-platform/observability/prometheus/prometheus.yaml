@@ -1,0 +1,92 @@
+# kustomize configMapGenerator를 통해 ConfigMap으로 자동 변환된다.
+# git push 후 Flux가 자동 반영
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # NODE_IOT, NODE_STORAGE, NODE_COMPUTE
+  - job_name: node_exporter
+    static_configs:
+      - targets:
+          [
+            "${NODE_IOT_IP}:9100",
+            "${NODE_STORAGE_IP}:9100",
+            "${NODE_COMPUTE_IP}:9100",
+          ]
+
+  # k3s kubelet 내장 cAdvisor
+  - job_name: cadvisor
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true  # kubelet 자체 서명 인증서 허용
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token  # ServiceAccount 토큰으로 kubelet 인증
+    metrics_path: /metrics/cadvisor
+    static_configs:
+      - targets:
+          ["${NODE_IOT_IP}:10250", "${NODE_STORAGE_IP}:10250", "${NODE_COMPUTE_IP}:10250"]
+
+  - job_name: kube_state_metrics
+    static_configs:
+      - targets: ["kube-state-metrics:8080"]
+
+  # 백업 모니터링 (velero_backup_* 메트릭)
+  - job_name: velero
+    static_configs:
+      - targets: ["velero.velero.svc:8085"]
+
+  # NVIDIA GPU 메트릭 (nvidia_gpu_exporter -- NVML 기반)
+  - job_name: nvidia_gpu_exporter
+    static_configs:
+      - targets: ["nvidia-gpu-exporter:9835"]
+
+  # ──── Blackbox Exporter (서비스 가용성 HTTP probe) ────
+  - job_name: blackbox_http
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          # ──── 플랫폼 ────
+          - http://adguard-web:3000
+          - http://gitea:3000
+          - http://grafana:3000
+          - http://oauth2-proxy:4180
+          - http://pocket-id:1411
+          # ──── AI/ML ────
+          - http://open-webui:8080
+          - http://ollama:11434
+          # ──── IoT ────
+          - http://homeassistant:8123
+          - http://zigbee2mqtt:8080
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  - job_name: blackbox_tcp
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets:
+          - postgres:5432
+          - redis:6379
+          - mosquitto:1883
+          - loki:3100
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

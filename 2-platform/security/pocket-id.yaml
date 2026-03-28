@@ -1,0 +1,119 @@
+# Pocket ID -- 경량 OIDC 프로바이더 (Passkey 인증)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pocket-id
+  namespace: default
+  labels:
+    app: pocket-id
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pocket-id
+  namespace: default
+  labels:
+    app: pocket-id
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pocket-id
+  template:
+    metadata:
+      labels:
+        app: pocket-id
+      annotations:
+        backup.velero.io/backup-volumes: data
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: ${NODE_STORAGE}
+      containers:
+        - name: pocket-id
+          image: ghcr.io/pocket-id/pocket-id:v2.4.0
+          ports:
+            - containerPort: 1411
+              name: web
+          env:
+            - name: TZ
+              value: "${TZ}"
+            - name: APP_URL
+              value: "https://${SUB_POCKET_ID}.${DOMAIN_LAN}"
+            - name: TRUST_PROXY
+              value: "true"
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: ENCRYPTION_KEY
+              value: "${POCKET_ID_ENCRYPTION_KEY}"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: web
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: web
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: pocket-id
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pocket-id
+  namespace: default
+  labels:
+    app: pocket-id
+spec:
+  selector:
+    app: pocket-id
+  ports:
+    - name: web
+      port: 1411
+      targetPort: web
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pocket-id
+  namespace: default
+  labels:
+    app: pocket-id
+    auth: self
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: ${SUB_POCKET_ID}.${DOMAIN_LAN}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pocket-id
+                port:
+                  number: 1411

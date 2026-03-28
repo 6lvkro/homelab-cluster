@@ -1,0 +1,94 @@
+# NetworkPolicy -- 기본 인바운드 차단 + 필요 트래픽만 허용
+# default namespace에 적용
+
+# 1. 기본 인바운드 차단
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: default
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# 2. Traefik -> 모든 앱 (Ingress 트래픽)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-from-traefik
+  namespace: default
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+---
+# 3. default namespace 내부 + infisical namespace 통신 허용
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-internal
+  namespace: default
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: infisical
+---
+# 4. AdGuard -- 모든 소스에서 DNS + Web 허용
+# LoadBalancer 경유 외부 DNS 쿼리 + Traefik 경유 Web UI
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-adguard
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: adguard
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+        - port: 3000
+          protocol: TCP
+---
+# 5. LoadBalancer 서비스 -- 외부 접근 허용
+# PostgreSQL, Samba, Gitea Registry 등
+# externalTrafficPolicy: Cluster 환경에서 SNAT되므로 ipBlock 대신 포트로 제한
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-loadbalancer
+  namespace: default
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - postgres
+          - samba
+          - gitea
+          - qbittorrent
+  policyTypes:
+    - Ingress
+  ingress:
+    - {}

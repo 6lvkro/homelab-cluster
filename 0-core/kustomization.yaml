@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - networking/cert-manager.yaml
+  - networking/metallb-config.yaml
+  - networking/traefik.yaml
+  - storage/shared-pvc.yaml
+  - flux-system/git-source.yaml
+  - flux-system/helm-repositories.yaml
+  - flux-system/kustomizations.yaml
+  - flux-system/infisical-secret.yaml
+  - flux-system/image-automation.yaml
+  - helm-releases.yaml
+  - compute/nvidia-device-plugin.yaml
+  - networking/network-policies.yaml

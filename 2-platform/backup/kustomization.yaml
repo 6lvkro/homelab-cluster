@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: default
+resources:
+  - velero.yaml
+  - postgres-backup.yaml
+  - platform-rclone.yaml
+configMapGenerator:
+  - name: postgres-backup-script
+    files:
+      - postgres-backup/postgres-backup.sh
+  - name: postgres-restore-test-script
+    files:
+      - postgres-backup/postgres-restore-test.sh

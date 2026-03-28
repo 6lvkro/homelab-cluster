@@ -1,0 +1,136 @@
+# 셀프호스팅 Git 서버
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gitea
+  namespace: default
+  labels:
+    app: gitea
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-client
+  resources:
+    requests:
+      storage: 300Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitea
+  namespace: default
+  labels:
+    app: gitea
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gitea
+  template:
+    metadata:
+      labels:
+        app: gitea
+      annotations:
+        backup.velero.io/backup-volumes: data
+    spec:
+      containers:
+        - name: gitea
+          image: gitea/gitea:1.25.5
+          ports:
+            - containerPort: 3000
+              name: web
+          envFrom:
+            - configMapRef:
+                name: gitea
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /api/healthz
+              port: web
+            initialDelaySeconds: 15
+            periodSeconds: 60
+          readinessProbe:
+            httpGet:
+              path: /api/healthz
+              port: web
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: ca-cert
+              mountPath: /etc/ssl/custom
+              readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: gitea
+        - name: ca-cert
+          secret:
+            secretName: tls
+            items:
+              - key: ca.crt
+                path: ca.crt
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitea
+  namespace: default
+  labels:
+    app: gitea
+spec:
+  selector:
+    app: gitea
+  ports:
+    - name: web
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitea-registry
+  namespace: default
+  labels:
+    app: gitea
+  annotations:
+    metallb.universe.tf/allow-shared-ip: gitea
+spec:
+  type: LoadBalancer
+  loadBalancerIP: ${LB_GITEA_IP}
+  selector:
+    app: gitea
+  ports:
+    - name: registry
+      port: 3000
+      targetPort: 3000
+---
+# NOTE: OAuth2-Proxy 미적용 -- 자체 OIDC 인증 내장
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gitea
+  namespace: default
+  labels:
+    app: gitea
+    auth: self
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: ${SUB_GITEA}.${DOMAIN_LAN}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gitea
+                port:
+                  number: 3000

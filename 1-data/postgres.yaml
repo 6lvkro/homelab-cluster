@@ -1,0 +1,100 @@
+# pgvector 확장 포함 공유 DB
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres
+  namespace: default
+  labels:
+    app: postgres
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: default
+  labels:
+    app: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+      annotations:
+        backup.velero.io/backup-volumes: data
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: ${NODE_STORAGE}
+      containers:
+        - name: postgres
+          image: tensorchord/pgvecto-rs:pg16-v0.2.0  # 벡터 검색 확장 포함 이미지(immich 필수)
+          ports:
+            - containerPort: 5432
+              name: db
+          env:
+            - name: POSTGRES_USER
+              value: "postgres"
+            - name: DB_PASSWORD_POSTGRES
+              valueFrom:
+                secretKeyRef:
+                  name: postgres
+                  key: DB_PASSWORD_POSTGRES
+            - name: TZ
+              value: "${TZ}"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "512Mi"
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 30
+            periodSeconds: 60
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: postgres
+        - name: init-scripts
+          configMap:
+            name: postgres-init
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: default
+  labels:
+    app: postgres
+spec:
+  type: LoadBalancer
+  loadBalancerIP: ${LB_POSTGRES_IP}
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      name: db
+      targetPort: 5432

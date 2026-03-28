@@ -1,0 +1,101 @@
+# Pocket ID OIDC를 통한 ForwardAuth 인증 프록시
+# Traefik ForwardAuth middleware로 사용
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth2-proxy
+  namespace: default
+  labels:
+    app: oauth2-proxy
+    strategy-rolling: ""
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oauth2-proxy
+  template:
+    metadata:
+      labels:
+        app: oauth2-proxy
+    spec:
+      containers:
+        - name: oauth2-proxy
+          image: quay.io/oauth2-proxy/oauth2-proxy:v7.9.0
+          args:
+            - --provider=oidc
+            - --oidc-issuer-url=https://${SUB_POCKET_ID}.${DOMAIN_LAN}
+            - --client-id=${POCKET_ID_CLIENT_ID_OAUTH2_PROXY}
+            - --client-secret=${POCKET_ID_OIDC_OAUTH2_PROXY}
+            - --cookie-secret=${OAUTH2_PROXY_COOKIE_SECRET}
+            - --cookie-domain=.${DOMAIN_LAN}
+            - --cookie-secure=true
+            - --cookie-samesite=lax
+            - --http-address=0.0.0.0:4180
+            - --reverse-proxy=true
+            - --email-domain=*
+            - --upstream=static://200
+            - --skip-provider-button=true
+            - --whitelist-domain=.${DOMAIN_LAN}
+            - --ssl-insecure-skip-verify=true
+            - --ssl-upstream-insecure-skip-verify=true
+            - --redirect-url=https://${SUB_OAUTH2_PROXY}.${DOMAIN_LAN}/oauth2/callback
+            - --scope=openid email profile
+          ports:
+            - name: web
+              containerPort: 4180
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "32Mi"
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: web
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: web
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy
+  namespace: default
+  labels:
+    app: oauth2-proxy
+spec:
+  selector:
+    app: oauth2-proxy
+  ports:
+    - name: web
+      port: 4180
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: oauth2-proxy
+  namespace: default
+  labels:
+    app: oauth2-proxy
+    auth: self
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: ${SUB_OAUTH2_PROXY}.${DOMAIN_LAN}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: oauth2-proxy
+                port:
+                  number: 4180

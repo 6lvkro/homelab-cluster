@@ -1,0 +1,158 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: adguard
+  namespace: default
+  labels:
+    app: adguard
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-client
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adguard
+  namespace: default
+  labels:
+    app: adguard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: adguard
+  template:
+    metadata:
+      labels:
+        app: adguard
+      annotations:
+        backup.velero.io/backup-volumes: data
+    spec:
+      initContainers:
+        - name: init-config
+          image: busybox:1.37
+          command: ["sh", "-c"]
+          args:
+            - |
+              if [ ! -f /opt/adguardhome/conf/AdGuardHome.yaml ]; then
+                cp /tmp/adguard-home.yaml /opt/adguardhome/conf/AdGuardHome.yaml
+              fi
+          volumeMounts:
+            - name: data
+              mountPath: /opt/adguardhome/conf
+              subPath: conf
+            - name: init-config-file
+              mountPath: /tmp/adguard-home.yaml
+              subPath: adguard-home.yaml
+      containers:
+        - name: adguard
+          image: adguard/adguardhome:v0.107.73
+          env:
+            - name: TZ
+              value: "${TZ}"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          ports:
+            - containerPort: 53
+              name: dns-udp
+              protocol: UDP
+            - containerPort: 53
+              name: dns-tcp
+              protocol: TCP
+            - containerPort: 3000
+              name: web
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 53
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          volumeMounts:
+            - name: data
+              mountPath: /opt/adguardhome/conf
+              subPath: conf
+            - name: data
+              mountPath: /opt/adguardhome/work
+              subPath: work
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: adguard
+        - name: init-config-file
+          configMap:
+            name: adguard
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: adguard-dns
+  namespace: default
+  labels:
+    app: adguard
+spec:
+  type: LoadBalancer
+  loadBalancerIP: ${LB_ADGUARD_IP}
+  selector:
+    app: adguard
+  ports:
+    - name: dns-udp
+      port: 53
+      targetPort: 53
+      protocol: UDP
+    - name: dns-tcp
+      port: 53
+      targetPort: 53
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: adguard-web
+  namespace: default
+  labels:
+    app: adguard
+spec:
+  selector:
+    app: adguard
+  ports:
+    - name: web
+      port: 3000
+      targetPort: 3000
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: adguard
+  namespace: default
+  labels:
+    app: adguard
+  annotations:
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: ${SUB_ADGUARD}.${DOMAIN_LAN}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: adguard-web
+                port:
+                  number: 3000

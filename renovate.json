@@ -1,0 +1,30 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "baseBranchPatterns": [
+    "main"
+  ],
+  "packageRules": [
+    {
+      "description": "자동 merge",
+      "matchUpdateTypes": ["patch"],
+      "automerge": true
+    },
+    {
+      "description": "PR만 생성",
+      "matchUpdateTypes": ["minor"],
+      "automerge": false
+    },
+    {
+      "description": "PR + breaking",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["breaking"]
+    },
+    {
+      "description": "자체 빌드 이미지 무시 (Flux Image Automation 관리)",
+      "matchPackageNames": ["my-custom-app"],
+      "enabled": false
+    }
+  ]
+}

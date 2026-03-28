@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+patches:
+  - target:
+      kind: Ingress
+      labelSelector: "!auth"
+    patch: |
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: unused
+        annotations:
+          traefik.ingress.kubernetes.io/router.middlewares: default-oauth2-proxy@kubernetescrd
