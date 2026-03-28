@@ -9,6 +9,7 @@ components:
 resources:
   - helm-releases.yaml
   - backup
+  - backup/velero.yaml
   - ci
   - networking
   - observability
