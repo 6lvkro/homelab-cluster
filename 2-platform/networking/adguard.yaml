@@ -142,7 +142,6 @@ metadata:
   namespace: default
   labels:
     app: adguard
-  annotations:
 spec:
   ingressClassName: traefik
   rules:
