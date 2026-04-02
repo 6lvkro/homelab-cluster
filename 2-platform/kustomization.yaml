@@ -5,6 +5,7 @@ components:
   - ../components/revision-history-limit
   - ../components/strategy-recreate
   - ../components/oauth-ingress
+  - ../components/sqlite-backup
 
 resources:
   - helm-releases.yaml

@@ -21,6 +21,7 @@ metadata:
   namespace: default
   labels:
     app: homeassistant
+    sqlite-backup: "true"
 spec:
   replicas: 1
   selector:
@@ -32,6 +33,8 @@ spec:
         app: homeassistant
       annotations:
         backup.velero.io/backup-volumes: config
+        pre.hook.backup.velero.io/container: homeassistant
+        pre.hook.backup.velero.io/command: '["/tools/sqlite3", "/config/home-assistant_v2.db", "PRAGMA wal_checkpoint(TRUNCATE);"]'
     spec:
       hostNetwork: true # mDNS/SSDP 등 IoT 장비 검색에 필요
       dnsPolicy: ClusterFirstWithHostNet

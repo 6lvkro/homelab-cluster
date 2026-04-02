@@ -21,6 +21,7 @@ metadata:
   namespace: default
   labels:
     app: pocket-id
+    sqlite-backup: "true"
 spec:
   replicas: 1
   selector:
@@ -32,6 +33,8 @@ spec:
         app: pocket-id
       annotations:
         backup.velero.io/backup-volumes: data
+        pre.hook.backup.velero.io/container: pocket-id
+        pre.hook.backup.velero.io/command: '["/tools/sqlite3", "/app/data/pocket-id.db", "PRAGMA wal_checkpoint(TRUNCATE);"]'
     spec:
       nodeSelector:
         kubernetes.io/hostname: ${NODE_STORAGE}
