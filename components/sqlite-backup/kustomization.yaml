@@ -19,18 +19,30 @@ patches:
               pre.hook.backup.velero.io/on-error: Continue
           spec:
             initContainers:
+              # sqlite3 바이너리 + 의존 라이브러리 + wrapper를 번들로 복사
+              # glibc/musl 무관하게 동작하도록 Alpine의 ld-musl 링커로 직접 실행
               - name: install-sqlite3
                 image: alpine:3.23
                 command: ["/bin/sh", "-c"]
                 args:
-                  - apk add --no-cache sqlite && cp /usr/bin/sqlite3 /tools/
+                  - |
+                    set -e
+                    apk add --no-cache sqlite
+                    mkdir -p /tools/lib
+                    cp /usr/bin/sqlite3 /tools/sqlite3.bin
+                    cp /usr/lib/libreadline.so* /tools/lib/
+                    cp /usr/lib/libncursesw.so* /tools/lib/
+                    cp /lib/ld-musl-*.so.1 /tools/lib/
+                    cp /lib/libc.musl-*.so.1 /tools/lib/ 2>/dev/null || true
+                    printf '#!/bin/sh\nD="$(cd "$(dirname "$0")" && pwd)"\nL="$(ls "$D"/lib/ld-musl-*.so.1 2>/dev/null|head -1)"\nLD_LIBRARY_PATH="$D/lib" exec "$L" "$D/sqlite3.bin" "$@"\n' > /tools/sqlite3
+                    chmod +x /tools/sqlite3
                 volumeMounts:
                   - name: tools
                     mountPath: /tools
             volumes:
               - name: tools
                 emptyDir:
-                  sizeLimit: 10Mi
+                  sizeLimit: 16Mi
   - target:
       kind: Deployment
       labelSelector: "sqlite-backup"
