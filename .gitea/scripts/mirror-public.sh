@@ -52,5 +52,13 @@ if git diff --cached --quiet; then
 fi
 
 MAIN_MSG=$(git log main -1 --format=%s)
-git commit -m "${MAIN_MSG} [mirror from ${MAIN_SHA}]"
+MAIN_AUTHOR=$(git log main -1 --format=%an)
+
+if [ "$MAIN_AUTHOR" = "Renovate Bot" ]; then
+  MIRROR_MSG="chore(deps): packages updated by Renovate Bot"
+else
+  MIRROR_MSG="$MAIN_MSG"
+fi
+
+git commit -m "${MIRROR_MSG} [mirror from ${MAIN_SHA}]"
 git push github mirror-staging:main
