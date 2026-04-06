@@ -22,7 +22,7 @@ spec:
       hostPID: true  # 호스트 프로세스 메트릭 수집에 필요
       containers:
         - name: node-exporter
-          image: prom/node-exporter:v1.10.2
+          image: prom/node-exporter:v1.11.0
           args:
             - "--path.rootfs=/host"
           resources:
