@@ -4,6 +4,14 @@
   "baseBranchPatterns": [
     "main"
   ],
+  "kubernetes": {
+    "managerFilePatterns": [
+      "0-core/**/*.yaml",
+      "1-data/**/*.yaml",
+      "2-platform/**/*.yaml",
+      "3-apps/**/*.yaml"
+    ]
+  },
   "packageRules": [
     {
       "description": "자동 merge",
