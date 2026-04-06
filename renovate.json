@@ -30,6 +30,11 @@
       "labels": ["breaking"]
     },
     {
+      "description": "CI 인프라 무시",
+      "matchPackageNames": ["my-custom-app"],
+      "enabled": false
+    },
+    {
       "description": "자체 빌드 이미지 무시 (Flux Image Automation 관리)",
       "matchPackageNames": ["my-custom-app"],
       "enabled": false

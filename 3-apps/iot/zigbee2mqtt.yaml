@@ -51,7 +51,7 @@ spec:
               mountPath: /config
       containers:
         - name: zigbee2mqtt
-          image: koenkk/zigbee2mqtt:2.9.1
+          image: koenkk/zigbee2mqtt:2.9.2
           ports:
             - containerPort: 8080
               name: web

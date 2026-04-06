@@ -36,7 +36,7 @@ spec:
         kubernetes.io/hostname: ${NODE_STORAGE}
       containers:
         - name: redis
-          image: redis:8.6.1-alpine
+          image: redis:8.6.2-alpine
           command: ["redis-server", "--appendonly", "yes"]
           ports:
             - containerPort: 6379

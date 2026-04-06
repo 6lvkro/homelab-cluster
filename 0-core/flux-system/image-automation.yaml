@@ -1,6 +1,6 @@
 # Flux Image Automation -- ImageUpdateAutomation (cluster-wide)
 # ImageRepository/ImagePolicy는 image-policies-{apps,platform,data}.yaml에 관리
-apiVersion: image.toolkit.fluxcd.io/v1beta2
+apiVersion: image.toolkit.fluxcd.io/v1
 kind: ImageUpdateAutomation
 metadata:
   name: homelab

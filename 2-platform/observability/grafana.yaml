@@ -47,7 +47,7 @@ spec:
               mountPath: /var/lib/grafana
       containers:
         - name: grafana
-          image: grafana/grafana-oss:12.4.1
+          image: grafana/grafana-oss:12.4.2
           ports:
             - containerPort: 3000
               name: web

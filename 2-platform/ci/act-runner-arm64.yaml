@@ -38,7 +38,7 @@ spec:
         kubernetes.io/hostname: ${NODE_STORAGE}
       containers:
         - name: act-runner
-          image: gitea/act_runner:0.3.0-dind
+          image: gitea/act_runner:0.3.1-dind
           command: ["/bin/sh", "/config/entrypoint.sh"]
           workingDir: /data
           securityContext:
