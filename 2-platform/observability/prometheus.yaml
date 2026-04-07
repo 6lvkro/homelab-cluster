@@ -60,8 +60,6 @@ spec:
     metadata:
       labels:
         app: prometheus
-      annotations:
-        backup.velero.io/backup-volumes: data
     spec:
       serviceAccountName: prometheus
       containers:

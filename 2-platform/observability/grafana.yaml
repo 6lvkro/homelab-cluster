@@ -29,8 +29,6 @@ spec:
     metadata:
       labels:
         app: grafana
-      annotations:
-        backup.velero.io/backup-volumes: data
     spec:
       securityContext:
         runAsUser: 472

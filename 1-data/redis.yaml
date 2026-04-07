@@ -29,8 +29,6 @@ spec:
     metadata:
       labels:
         app: redis
-      annotations:
-        backup.velero.io/backup-volumes: data
     spec:
       nodeSelector:
         kubernetes.io/hostname: ${NODE_STORAGE}

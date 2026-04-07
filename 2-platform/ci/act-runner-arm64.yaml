@@ -31,8 +31,6 @@ spec:
     metadata:
       labels:
         app: act-runner-arm64
-      annotations:
-        backup.velero.io/backup-volumes: runner-data
     spec:
       nodeSelector:
         kubernetes.io/hostname: ${NODE_STORAGE}
