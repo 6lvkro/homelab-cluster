@@ -35,30 +35,14 @@ spec:
             - name: TZ
               value: "${TZ}"
             - name: ACCOUNT_${DEFAULT_USERNAME}
-              value: "${DEFAULT_USERNAME}"
+              valueFrom:
+                secretKeyRef:
+                  name: samba
+                  key: DEFAULT_PASSWORD
             - name: UID_${DEFAULT_USERNAME}
               value: "1000"
-            - name: PASSWORD_${DEFAULT_USERNAME}
-              valueFrom:
-                secretKeyRef:
-                  name: samba
-                  key: DEFAULT_PASSWORD
             - name: SAMBA_VOLUME_CONFIG_Media
               value: "[Media]; path=/mnt; valid users=${DEFAULT_USERNAME}; guest ok=no; read only=no"
-            - name: SAMBA_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: samba
-                  key: DEFAULT_PASSWORD
-          lifecycle:
-            postStart:
-              exec:
-                command:
-                  [
-                    "/bin/sh",
-                    "-c",
-                    "sleep 5 && echo -e \"$DEFAULT_PASSWORD\\n$DEFAULT_PASSWORD\" | smbpasswd -s -a ${DEFAULT_USERNAME}",
-                  ]
           resources:
             requests:
               cpu: "50m"
