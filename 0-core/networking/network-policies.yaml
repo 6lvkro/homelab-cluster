@@ -88,6 +88,7 @@ spec:
           - samba
           - gitea
           - qbittorrent
+          - companion
   policyTypes:
     - Ingress
   ingress:
