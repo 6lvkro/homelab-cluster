@@ -40,7 +40,7 @@ spec:
         kubernetes.io/hostname: ${NODE_STORAGE}
       containers:
         - name: pocket-id
-          image: ghcr.io/pocket-id/pocket-id:v2.5.0
+          image: ghcr.io/pocket-id/pocket-id:v2.6.2
           ports:
             - containerPort: 1411
               name: web
