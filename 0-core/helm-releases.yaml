@@ -114,3 +114,9 @@ spec:
       name: nfs-client
       defaultClass: true
       reclaimPolicy: Retain
+      mountOptions:
+        - nfsvers=4.2
+        - hard
+        - timeo=600
+        - retrans=2
+        - nconnect=4
