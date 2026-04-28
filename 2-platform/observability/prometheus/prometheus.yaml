@@ -21,6 +21,10 @@ scrape_configs:
             "${NODE_COMPUTE_IP}:9100",
           ]
 
+  - job_name: windows_exporter
+    static_configs:
+      - targets: ["${NODE_COMPUTE_IP}:9182"]
+
   # k3s kubelet 내장 cAdvisor
   - job_name: cadvisor
     scheme: https
