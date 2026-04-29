@@ -109,13 +109,13 @@ spec:
     nfs:
       server: ${NODE_STORAGE_IP}
       path: ${PATH_NFS}
-    storageClass:
-      name: nfs-client
-      defaultClass: true
-      reclaimPolicy: Retain
       mountOptions:
         - nfsvers=4.2
         - hard
         - timeo=600
         - retrans=2
         - nconnect=4
+    storageClass:
+      name: nfs-client
+      defaultClass: true
+      reclaimPolicy: Retain
