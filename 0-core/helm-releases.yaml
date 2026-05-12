@@ -31,11 +31,6 @@ spec:
     # DNS-01 self-check를 외부 public resolver로 강제
     dns01RecursiveNameservers: "1.1.1.1:53,1.0.0.1:53"
     dns01RecursiveNameserversOnly: true
-    # 노드의 search domain에 의해 외부 호스트네임이 AdGuard wildcard rewrite로 hijack되는 것을 방지
-    podDnsConfig:
-      options:
-        - name: ndots
-          value: "1"
     resources:
       requests:
         cpu: 10m
