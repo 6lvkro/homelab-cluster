@@ -144,8 +144,6 @@ configs:
     auth:
       username: <DEFAULT_USERNAME>
       password: <GITEA_TOKEN>
-    tls:
-      insecure_skip_verify: true
 EOF
 
 # 에이전트의 경우 k3s-agent
@@ -188,7 +186,7 @@ kubectl create secret generic infisical-secrets -n infisical \
 | `/`             | `DEFAULT_PASSWORD`                                                                                              |
 | `/postgres`     | `DB_PASSWORD_POSTGRES`, `DB_PASSWORD_GRAFANA`, `DB_PASSWORD_OPENWEBUI`, `DB_PASSWORD_INFISICAL`                 |
 | `/gitea`        | `GITEA_TOKEN`, `GITEA_RUNNER_REGISTRATION_TOKEN`                                                                |
-| `/cloudflare`   | `CLOUDFLARE_TOKEN`                                                                                              |
+| `/cloudflare`   | `CLOUDFLARE_DNS01_TOKEN`, `CLOUDFLARE_TUNNEL_TOKEN`                                                             |
 | `/b2`           | `B2_KEY_ID`, `B2_APPLICATION_KEY`                                                                               |
 | `/pocket-id`    | `POCKET_ID_ENCRYPTION_KEY`, `POCKET_ID_OIDC_GRAFANA`, `POCKET_ID_OIDC_OPENWEBUI`, `POCKET_ID_OIDC_OAUTH2_PROXY` |
 | `/oauth2-proxy` | `OAUTH2_PROXY_COOKIE_SECRET`                                                                                    |
@@ -240,16 +238,30 @@ kubectl create configmap cluster-config -n flux-system \
 > 초기 생성 이후 `.env.config` 변경은 CI 워크플로우로 자동화 한다. ([`sync-config.yaml`](0-core/flux-system/sync-config.yaml))
 > CI에 필요한 시크릿: Gitea 레포 > Settings > Actions > Secrets > `KUBECONFIG_B64` (base64 kubeconfig)
 
-### 6-3. CA 인증서 추출
+### 6-3. Cloudflare DNS-01 시크릿 등록
 
-cert-manager가 배포되면 자체 CA를 발급한다.
+cert-manager는 Let's Encrypt 와일드카드 인증서를 DNS-01 challenge로 발급한다.
+
+1. **Cloudflare API Token 발급**
+   - Cloudflare 대시보드 > My Profile > API Tokens > Create Token (Custom token)
+   - Permissions: `Zone -> DNS -> Edit`, `Zone -> Zone -> Read`
+   - Zone Resources: `Include - Specific zone - <DOMAIN_LAN>`
+
+2. **Infisical에 등록**
+   - 키: `CLOUDFLARE_DNS01_TOKEN`
+   - 값: 위에서 발급한 토큰
+   - InfisicalSecret이 cluster-secrets에 동기화하면, Flux가 envsubst로 cert-manager 네임스페이스의 `cloudflare-api-token` Secret을 채운다.
+
+3. **cert-manager 배포 대기 + 와일드카드 인증서 발급 검증**
 
 ```bash
-# cert-manager 배포 대기
 kubectl wait --for=condition=available deploy/cert-manager -n cert-manager --timeout=300s
+kubectl wait --for=condition=ready certificate/wildcard-tls -n default --timeout=600s
+```
 
-kubectl get secret root-ca-key-pair -n cert-manager \
-  -o jsonpath='{.data.ca\.crt}' | base64 -d > homelab-ca.crt
+```bash
+kubectl describe certificate wildcard-tls -n default
+kubectl get challenges,orders -A
 ```
 
 ### 6-4. Flux Kustomization 적용
@@ -275,35 +287,19 @@ kubectl create secret docker-registry gitea-registry -n flux-system \
   --docker-server=https://<SUB_GITEA>.<DOMAIN_LAN> \
   --docker-username=<USERNAME> \
   --docker-password=<GITEA_TOKEN>
-
-# 비공개 레지스트리 CA 인증서
-kubectl create secret generic gitea-ca-cert -n flux-system \
-  --from-file=ca.crt=homelab-ca.crt
 ```
 
 ## 배포 후 설정
 
 아래 단계들은 Flux가 매니페스트를 배포한 뒤 진행한다.
 
-### 7. CA 인증서 신뢰 등록
-
-6-3에서 추출한 CA를 클라이언트 기기에 등록해야 HTTPS 경고 없이 접근할 수 있다.
-
-```bash
-# Linux
-sudo cp homelab-ca.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates
-```
-
-> macOS: `security add-trusted-cert`, Windows: `certutil -addstore "ROOT"`, 모바일: 프로파일/인증서 설정에서 설치.
-> Firefox는 OS 인증서 저장소를 사용하지 않으므로 별도로 가져오기 필요.
-
-### 8. DNS 및 네트워크
+### 7. DNS 및 네트워크
 
 - 라우터 DNS 서버를 `.env.config`의 `LB_ADGUARD_IP`로 설정
 - AdGuard DNS rewrite로 `*.<DOMAIN_LAN>` 와일드카드를 Traefik IP로 해석
 - 개별 서비스 접근: `https://<SUB_DOMAIN>.<DOMAIN_LAN>`
 
-### 9. OIDC 설정 (Pocket ID)
+### 8. OIDC 설정 (Pocket ID)
 
 Pocket ID 관리자 UI(`https://<SUB_POCKET_ID>.<DOMAIN_LAN>`)에서 각 서비스의 OIDC 클라이언트를 등록한다.
 OIDC 환경변수가 선언된 서비스는 자동 설정되며, 클라이언트별로 사용자 접근 권한을 부여해야 한다.
@@ -322,7 +318,7 @@ kubectl exec deploy/gitea -- su -c \
     --auto-discover-url https://<SUB_POCKET_ID>.<DOMAIN_LAN>/.well-known/openid-configuration" git
 ```
 
-### 10. CI 부트스트랩 (Act Runner)
+### 9. CI 부트스트랩 (Act Runner)
 
 초기 배포 시 순서 의존성:
 
