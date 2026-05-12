@@ -87,8 +87,6 @@ spec:
           - postgres
           - samba
           - gitea
-          - qbittorrent
-          - companion
   policyTypes:
     - Ingress
   ingress:
