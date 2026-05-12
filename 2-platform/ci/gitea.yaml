@@ -64,19 +64,10 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
-            - name: ca-cert
-              mountPath: /etc/ssl/custom
-              readOnly: true
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: gitea
-        - name: ca-cert
-          secret:
-            secretName: tls
-            items:
-              - key: ca.crt
-                path: ca.crt
 ---
 apiVersion: v1
 kind: Service

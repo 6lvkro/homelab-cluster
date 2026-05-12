@@ -19,7 +19,6 @@ configMapGenerator:
       - GITEA__server__SSH_DOMAIN=${SUB_GITEA}.${DOMAIN_LAN}
       - GITEA__server__DISABLE_SSH=true
       - GITEA__packages__ENABLE_CONTAINER_ANONYMOUS_ACCESS=true
-      - SSL_CERT_FILE=/etc/ssl/custom/ca.crt
       - GITEA__oauth2_client__ENABLE_AUTO_REGISTRATION=true
       - GITEA__oauth2_client__ACCOUNT_LINKING=auto
       - GITEA__oauth2_client__USERNAME=email

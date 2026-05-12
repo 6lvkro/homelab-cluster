@@ -86,10 +86,6 @@ spec:
             - name: runner-config
               mountPath: /config
               readOnly: true
-            - name: ca-cert
-              mountPath: /usr/local/share/ca-certificates/homelab-ca.crt
-              subPath: ca.crt
-              readOnly: true
 
       volumes:
         - name: runner-data
@@ -101,9 +97,3 @@ spec:
         - name: runner-config
           configMap:
             name: act-runner
-        - name: ca-cert
-          secret:
-            secretName: tls
-            items:
-              - key: ca.crt
-                path: ca.crt

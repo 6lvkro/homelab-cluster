@@ -9,11 +9,6 @@ if ! command -v node >/dev/null 2>&1; then
   apk add --no-cache nodejs
 fi
 
-# 자체 CA 인증서 신뢰 (Gitea registry token auth용)
-if [ -f /usr/local/share/ca-certificates/homelab-ca.crt ]; then
-  update-ca-certificates 2>/dev/null || true
-fi
-
 # DinD: Docker 데몬 백그라운드 시작 (GITEA_INSTANCE_URL에서 host:port 추출)
 dockerd --host=unix:///var/run/docker.sock --host=tcp://0.0.0.0:2375 --tls=false --insecure-registry="$${GITEA_INSTANCE_URL#*://}" --mtu=1400 &
 sleep 3
