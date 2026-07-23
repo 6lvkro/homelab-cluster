@@ -1,0 +1,61 @@
+# 매일 04:00 apps 계층 B2 오프사이트 동기화
+# Velero로 백업 불가한 대용량 미디어 파일용
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: apps-rclone
+  namespace: default
+  labels:
+    app: apps-rclone
+spec:
+  schedule: "0 4 * * *"
+  timeZone: "${TZ}"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: apps-rclone
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: rclone
+              image: rclone/rclone:latest
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -e
+                  rclone sync /data/immich/ b2:${B2_RCLONE_BUCKET}/immich/ --transfers=4 --checkers=8 --log-level=INFO
+              env:
+                - name: RCLONE_CONFIG_B2_TYPE
+                  value: "s3"
+                - name: RCLONE_CONFIG_B2_PROVIDER
+                  value: "Other"
+                - name: RCLONE_CONFIG_B2_ACCESS_KEY_ID
+                  value: "${B2_KEY_ID}"
+                - name: RCLONE_CONFIG_B2_SECRET_ACCESS_KEY
+                  value: "${B2_APPLICATION_KEY}"
+                - name: RCLONE_CONFIG_B2_ENDPOINT
+                  value: "${B2_ENDPOINT}"
+                - name: RCLONE_CONFIG_B2_REGION
+                  value: "${B2_REGION}"
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "256Mi"
+              volumeMounts:
+                - name: media
+                  mountPath: /data/immich
+                  subPath: immich
+                  readOnly: true
+          volumes:
+            - name: media
+              persistentVolumeClaim:
+                claimName: shared-media

@@ -1,0 +1,10 @@
+container:
+  docker_host: unix:///var/run/docker.sock
+  network: host
+  default_image: node:24-bookworm
+  privileged: true
+  options: >-
+    -v /cache:/cache
+  valid_volumes:
+    - /tmp
+    - /cache

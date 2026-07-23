@@ -1,0 +1,43 @@
+# Let's Encrypt + Cloudflare DNS-01 + 와일드카드 인증서
+#
+# Flow:
+#   1. letsencrypt-prod ClusterIssuer (ACME, DNS-01 via Cloudflare)
+#   2. wildcard-tls Certificate (apex + 와일드카드) -> Secret "tls"
+#   3. Traefik TLSStore가 발급된 Secret "tls"를 참조
+
+# 1. Let's Encrypt production ClusterIssuer
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: ${ACME_EMAIL}
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+      - dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: cloudflare-api-token
+              key: api-token
+---
+# 2. 와일드카드 인증서
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-tls
+  namespace: default
+spec:
+  secretName: tls
+  renewBefore: 360h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  dnsNames:
+    - "${DOMAIN_LAN}"
+    - "*.${DOMAIN_LAN}"
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer

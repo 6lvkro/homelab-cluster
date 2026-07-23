@@ -1,0 +1,38 @@
+# DNS rewrites로 *.${DOMAIN_LAN} 와일드카드 해석, upstream으로 외부 포워딩
+http:
+  address: 0.0.0.0:3000
+  session_ttl: 720h
+bind_host: 0.0.0.0
+bind_port: 3000
+language: ko
+
+dns:
+  bind_hosts:
+    - 0.0.0.0
+  port: 53
+  upstream_dns:
+    - 1.1.1.1
+    - 8.8.8.8
+  rewrites:
+    - domain: "*.${DOMAIN_LAN}"
+      answer: "${LB_TRAEFIK_IP}"
+    - domain: "${DOMAIN_LAN}"
+      answer: "${LB_TRAEFIK_IP}"
+  cache_size: 4194304  # 4MB
+  cache_ttl_min: 300
+  cache_ttl_max: 3600
+  trusted_proxies:
+    - 10.42.0.0/16   # k8s pod CIDR
+    - 10.43.0.0/16   # k8s service CIDR
+    - 127.0.0.0/8
+    - ::1/128
+
+filters:
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
+    name: AdGuard DNS filter
+    id: 1
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_2.txt
+    name: AdAway Default Blocklist
+    id: 2

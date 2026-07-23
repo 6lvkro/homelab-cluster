@@ -1,0 +1,134 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: code-server
+  namespace: default
+  labels:
+    app: code-server
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: code-server
+  namespace: default
+  labels:
+    app: code-server
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: code-server
+  template:
+    metadata:
+      labels:
+        app: code-server
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: ${NODE_COMPUTE}
+      tolerations:
+        - key: node-role
+          operator: Equal
+          value: compute
+          effect: NoSchedule
+      containers:
+        - name: code-server
+          image: lscr.io/linuxserver/code-server:4.127.0-ls350
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: TZ
+              value: ${TZ}
+            - name: DEFAULT_WORKSPACE
+              value: ${PATH_WORKSPACE}
+          ports:
+            - containerPort: 8443
+              name: web
+              protocol: TCP
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "1Gi"
+            limits:
+              cpu: "4000m"
+              memory: "16Gi"
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: web
+            failureThreshold: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: web
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: web
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: workspace
+              mountPath: ${PATH_WORKSPACE}
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: code-server
+        - name: workspace
+          hostPath:
+            path: ${PATH_WORKSPACE}
+            type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: code-server
+  namespace: default
+  labels:
+    app: code-server
+spec:
+  selector:
+    app: code-server
+  ports:
+    - port: 8443
+      name: web
+      targetPort: 8443
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: code-server
+  namespace: default
+  labels:
+    app: code-server
+    auth: forward
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: default-oauth2-proxy@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: ${SUB_CODE_SERVER}.${DOMAIN_LAN}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: code-server
+                port:
+                  number: 8443

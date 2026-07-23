@@ -1,0 +1,20 @@
+mqtt:
+  server: mqtt://mosquitto:1883
+
+serial:
+  port: ${PATH_ZIGBEE_USB}
+  adapter: ember
+
+frontend:
+  enabled: true
+  port: 8080
+
+advanced:
+  log_level: info
+  homeassistant_legacy_entity_attributes: false
+  legacy_api: false
+  legacy_availability_payload: false
+
+homeassistant: true
+
+availability: true

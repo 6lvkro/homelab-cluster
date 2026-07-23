@@ -1,0 +1,54 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "baseBranchPatterns": [
+    "main"
+  ],
+  "kubernetes": {
+    "managerFilePatterns": [
+      "0-core/**/*.yaml",
+      "1-data/**/*.yaml",
+      "2-platform/**/*.yaml",
+      "3-apps/**/*.yaml"
+    ]
+  },
+  "packageRules": [
+    {
+      "description": "자동 merge",
+      "matchUpdateTypes": ["patch"],
+      "automerge": true
+    },
+    {
+      "description": "PR만 생성",
+      "matchUpdateTypes": ["minor"],
+      "automerge": false
+    },
+    {
+      "description": "PR + breaking",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["breaking"]
+    },
+    {
+      "description": "CI 인프라 무시",
+      "matchPackageNames": ["gitea/act_runner"],
+      "enabled": false
+    },
+    {
+      "description": "자체 빌드 이미지 무시 (Flux Image Automation 관리)",
+      "matchPackageNames": ["my-custom-app"],
+      "enabled": false
+    },
+    {
+      "description": "velero-plugin-for-aws: v1.14.1 벤더 SDK가 빈 x-amz-tagging 헤더 전송",
+      "matchPackageNames": ["velero/velero-plugin-for-aws"],
+      "allowedVersions": "<=1.14.0"
+    },
+    {
+      "description": "stateful/DR 컴포넌트는 patch라도 자동머지 금지",
+      "matchPackageNames": ["velero", "velero/velero-plugin-for-aws"],
+      "matchUpdateTypes": ["patch"],
+      "automerge": false
+    }
+  ]
+}

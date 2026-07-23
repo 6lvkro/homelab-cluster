@@ -1,0 +1,82 @@
+# Traefik 인그레스 컨트롤러 설정
+# k3s 내장 Traefik의 Helm 설정 오버라이드
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    dashboard:
+      enabled: true
+    service:
+      spec:
+        loadBalancerIP: "${LB_TRAEFIK_IP}"
+    ports:
+      websecure:
+        transport:
+          respondingTimeouts:
+            readTimeout: "1800s"
+            writeTimeout: "1800s"
+            idleTimeout: "600s"
+      web:
+        redirections:
+          entryPoint:
+            to: websecure
+            scheme: https
+        transport:
+          respondingTimeouts:
+            readTimeout: "1800s"
+            writeTimeout: "1800s"
+            idleTimeout: "600s"
+    providers:
+      kubernetesCRD:
+        allowCrossNamespace: true
+---
+# Traefik 대시보드 라우팅
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: traefik-dashboard
+  namespace: kube-system
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+    - match: Host(`${SUB_TRAEFIK}.${DOMAIN_LAN}`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))
+      kind: Rule
+      middlewares:
+        - name: oauth2-proxy
+          namespace: default
+      services:
+        - name: api@internal
+          kind: TraefikService
+---
+# Default TLS Store -- Traefik이 *.${DOMAIN_LAN} 인증서를 기본으로 사용
+# cert-manager가 발급한 와일드카드 인증서를 참조 (cert-manager.yaml의 Certificate CRD)
+apiVersion: traefik.io/v1alpha1
+kind: TLSStore
+metadata:
+  name: default
+  namespace: default
+spec:
+  defaultCertificate:
+    secretName: tls
+---
+# OAuth2-Proxy ForwardAuth 미들웨어
+# 인증됨 -> upstream(static://200) -> 200 -> Traefik 허용
+# 미인증 -> OAuth2-Proxy가 302 -> Pocket ID 로그인으로 리다이렉트
+# Ingress annotation: traefik.ingress.kubernetes.io/router.middlewares: default-oauth2-proxy@kubernetescrd
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: oauth2-proxy
+  namespace: default
+spec:
+  forwardAuth:
+    address: "http://oauth2-proxy.default.svc.cluster.local:4180/"
+    trustForwardHeader: true
+    authResponseHeaders:
+      - X-Auth-Request-User
+      - X-Auth-Request-Email

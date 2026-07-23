@@ -1,0 +1,107 @@
+# 매일 01:00 전체 DB 덤프
+# 덤프 파일은 NFS에 저장되며 7일간 보존
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: default
+spec:
+  schedule: "0 1 * * *"
+  timeZone: "${TZ}"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 600
+      template:
+        spec:
+          nodeSelector:
+            kubernetes.io/hostname: ${NODE_STORAGE}
+          containers:
+          - name: pg-dump
+            image: postgres:16-alpine
+            command: ["/bin/sh", "/scripts/postgres-backup.sh"]
+            env:
+            - name: DB_PASSWORD_POSTGRES
+              valueFrom:
+                secretKeyRef:
+                  name: postgres
+                  key: DB_PASSWORD_POSTGRES
+            - name: TZ
+              value: "${TZ}"
+            resources:
+              requests:
+                cpu: "100m"
+                memory: "256Mi"
+              limits:
+                cpu: "500m"
+                memory: "512Mi"
+            volumeMounts:
+            - name: backup
+              mountPath: /backup
+              subPath: backups
+            - name: scripts
+              mountPath: /scripts
+          restartPolicy: OnFailure
+          volumes:
+          - name: backup
+            persistentVolumeClaim:
+              claimName: shared-misc
+          - name: scripts
+            configMap:
+              name: postgres-backup-script
+              defaultMode: 0755
+---
+# PostgreSQL 복원 테스트
+# 최신 백업 파일로 임시 DB 복원 후 테이블 카운트 검증
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-restore-test
+  namespace: default
+spec:
+  schedule: "0 5 * * 0"
+  timeZone: "${TZ}"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 600
+      template:
+        spec:
+          nodeSelector:
+            kubernetes.io/hostname: ${NODE_STORAGE}
+          containers:
+          - name: pg-restore-test
+            image: postgres:16-alpine
+            command: ["/bin/sh", "/scripts/postgres-restore-test.sh"]
+            env:
+            - name: DB_PASSWORD_POSTGRES
+              valueFrom:
+                secretKeyRef:
+                  name: postgres
+                  key: DB_PASSWORD_POSTGRES
+            - name: TZ
+              value: "${TZ}"
+            resources:
+              requests:
+                cpu: "100m"
+                memory: "256Mi"
+              limits:
+                cpu: "500m"
+                memory: "512Mi"
+            volumeMounts:
+            - name: backup
+              mountPath: /backup
+              subPath: backups
+            - name: scripts
+              mountPath: /scripts
+          restartPolicy: OnFailure
+          volumes:
+          - name: backup
+            persistentVolumeClaim:
+              claimName: shared-misc
+          - name: scripts
+            configMap:
+              name: postgres-restore-test-script
+              defaultMode: 0755

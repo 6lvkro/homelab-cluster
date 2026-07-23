@@ -1,0 +1,54 @@
+# Flux HelmRepository 소스 정의
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: jetstack
+  namespace: flux-system
+spec:
+  interval: 24h
+  url: https://charts.jetstack.io
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: metallb
+  namespace: flux-system
+spec:
+  interval: 24h
+  url: https://metallb.github.io/metallb
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: nfs-subdir
+  namespace: flux-system
+spec:
+  interval: 24h
+  url: https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: grafana
+  namespace: flux-system
+spec:
+  interval: 24h
+  url: https://grafana.github.io/helm-charts
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: vmware-tanzu
+  namespace: flux-system
+spec:
+  interval: 24h
+  url: https://vmware-tanzu.github.io/helm-charts
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: infisical
+  namespace: flux-system
+spec:
+  interval: 24h
+  url: https://dl.cloudsmith.io/public/infisical/helm-charts/helm/charts/

@@ -1,0 +1,84 @@
+# Flux Kustomizations -- 4-Tier GitOps 파이프라인
+# postBuild.substituteFrom으로 cluster-config(ConfigMap) + cluster-secrets(Secret)에서 ${VAR} 치환
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: homelab-core
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./0-core
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: homelab
+  postBuild:
+    substituteFrom:
+      - kind: ConfigMap
+        name: cluster-config
+      - kind: Secret
+        name: cluster-secrets
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: homelab-data
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./1-data
+  prune: true
+  dependsOn:
+    - name: homelab-core
+  sourceRef:
+    kind: GitRepository
+    name: homelab
+  postBuild:
+    substituteFrom:
+      - kind: ConfigMap
+        name: cluster-config
+      - kind: Secret
+        name: cluster-secrets
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: homelab-platform
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./2-platform
+  prune: true
+  dependsOn:
+    - name: homelab-data
+  sourceRef:
+    kind: GitRepository
+    name: homelab
+  postBuild:
+    substituteFrom:
+      - kind: ConfigMap
+        name: cluster-config
+      - kind: Secret
+        name: cluster-secrets
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: homelab-apps
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./3-apps
+  prune: true
+  dependsOn:
+    - name: homelab-platform
+  sourceRef:
+    kind: GitRepository
+    name: homelab
+  postBuild:
+    substituteFrom:
+      - kind: ConfigMap
+        name: cluster-config
+      - kind: Secret
+        name: cluster-secrets

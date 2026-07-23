@@ -1,0 +1,37 @@
+# gitea main -> public 미러링
+name: Mirror public
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  mirror:
+    runs-on: linux-amd64
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Build and push public
+        env:
+          GITHUB_COM_TOKEN: ${{ secrets.GITHUB_COM_TOKEN }}
+          MIRROR_REPO: ${{ vars.MIRROR_REPO }}
+        run: .gitea/scripts/mirror-public.sh
+
+      # 스크립트가 체크아웃된 트리에 있으므로 Checkout 실패 시에는 건너뛴다
+      - name: Open issue on failure
+        if: failure() && steps.checkout.outcome == 'success'
+        env:
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+        run: .gitea/scripts/mirror-failure-issue.mjs
+
+      - name: Cleanup
+        if: always()
+        run: git checkout main || true

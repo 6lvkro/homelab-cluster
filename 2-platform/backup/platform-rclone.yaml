@@ -1,0 +1,61 @@
+# 매일 04:00 platform 계층 B2 오프사이트 동기화
+# postgres-backup CronJob이 NFS에 저장한 덤프를 B2로 증분 동기화
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: platform-rclone
+  namespace: default
+  labels:
+    app: platform-rclone
+spec:
+  schedule: "0 4 * * *"
+  timeZone: "${TZ}"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: platform-rclone
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: rclone
+              image: rclone/rclone:latest
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -e
+                  rclone sync /data/backups/ b2:${B2_RCLONE_BUCKET}/backups/ --transfers=4 --checkers=8 --log-level=INFO
+              env:
+                - name: RCLONE_CONFIG_B2_TYPE
+                  value: "s3"
+                - name: RCLONE_CONFIG_B2_PROVIDER
+                  value: "Other"
+                - name: RCLONE_CONFIG_B2_ACCESS_KEY_ID
+                  value: "${B2_KEY_ID}"
+                - name: RCLONE_CONFIG_B2_SECRET_ACCESS_KEY
+                  value: "${B2_APPLICATION_KEY}"
+                - name: RCLONE_CONFIG_B2_ENDPOINT
+                  value: "${B2_ENDPOINT}"
+                - name: RCLONE_CONFIG_B2_REGION
+                  value: "${B2_REGION}"
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "256Mi"
+              volumeMounts:
+                - name: misc
+                  mountPath: /data/backups
+                  subPath: backups
+                  readOnly: true
+          volumes:
+            - name: misc
+              persistentVolumeClaim:
+                claimName: shared-misc

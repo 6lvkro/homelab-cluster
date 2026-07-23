@@ -1,0 +1,19 @@
+# PR 검증 -- main 대상 PR에 커밋 상태를 붙인다
+name: PR validate
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: linux-amd64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup kubectl
+        run: .gitea/scripts/ensure-kubectl.sh
+
+      - name: Lint and build
+        run: .gitea/scripts/pr-validate.sh

@@ -1,0 +1,115 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jellyfin
+  namespace: default
+  labels:
+    app: jellyfin
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-client
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jellyfin
+  namespace: default
+  labels:
+    app: jellyfin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jellyfin
+  template:
+    metadata:
+      labels:
+        app: jellyfin
+    spec:
+      containers:
+        - name: jellyfin
+          image: lscr.io/linuxserver/jellyfin:10.11.6ubu2404-ls22
+          ports:
+            - containerPort: 8096
+              name: web
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: TZ
+              value: "${TZ}"
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: web
+            initialDelaySeconds: 30
+            periodSeconds: 60
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: web
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          volumeMounts:
+            - name: media
+              mountPath: /data
+            - name: config
+              mountPath: /config
+      volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: shared-media
+        - name: config
+          persistentVolumeClaim:
+            claimName: jellyfin
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jellyfin
+  namespace: default
+  labels:
+    app: jellyfin
+spec:
+  selector:
+    app: jellyfin
+  ports:
+    - port: 8096
+      name: web
+      targetPort: 8096
+---
+# NOTE: OAuth2-Proxy 미적용 -- 자체 사용자 인증 내장
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jellyfin
+  namespace: default
+  labels:
+    app: jellyfin
+    auth: self
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: ${SUB_JELLYFIN}.${DOMAIN_LAN}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: jellyfin
+                port:
+                  number: 8096

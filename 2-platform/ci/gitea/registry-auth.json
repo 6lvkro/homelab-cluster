@@ -1,0 +1,8 @@
+{
+  "auths": {
+    "https://${SUB_GITEA}.${DOMAIN_LAN}": {
+      "username": "${DEFAULT_USERNAME}",
+      "password": "${GITEA_TOKEN}"
+    }
+  }
+}
