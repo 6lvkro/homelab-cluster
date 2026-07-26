@@ -6,7 +6,7 @@ on:
 
 jobs:
   renovate:
-    runs-on: ubuntu-latest
+    runs-on: linux-arm64
     container:
       image: renovate/renovate:latest
     steps:

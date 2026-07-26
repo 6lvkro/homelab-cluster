@@ -8,7 +8,7 @@ on:
 
 jobs:
   mirror:
-    runs-on: linux-amd64
+    runs-on: linux-arm64
     permissions:
       contents: read
       issues: write
