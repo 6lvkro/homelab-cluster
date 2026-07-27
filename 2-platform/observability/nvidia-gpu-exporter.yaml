@@ -27,7 +27,7 @@ spec:
           effect: NoSchedule
       containers:
         - name: nvidia-gpu-exporter
-          image: utkuozdemir/nvidia_gpu_exporter:1.13.0
+          image: utkuozdemir/nvidia_gpu_exporter:1.13.1
           ports:
             - containerPort: 9835
               name: metrics
