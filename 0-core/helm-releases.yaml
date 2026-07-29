@@ -119,5 +119,6 @@ spec:
         - nconnect=4
     storageClass:
       name: nfs-client
-      defaultClass: true
+      # 기본 클래스가 둘이면 storageClassName 미지정 PVC의 바인딩 대상이 비결정적이 되므로, defaultClass를 명시적으로 끈다.
+      defaultClass: false
       reclaimPolicy: Retain
