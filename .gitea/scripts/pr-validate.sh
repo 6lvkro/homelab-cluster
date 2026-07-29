@@ -11,9 +11,8 @@ installed=$("${VENV}/bin/yamllint" --version 2>/dev/null | awk '{print $2}' || t
 
 if [ "${installed}" != "${VERSION}" ]; then
   echo "yamllint ${VERSION} 설치 (현재: ${installed:-없음})"
-  # 러너 이미지에 ensurepip이 없어 venv 생성에 python3-venv가 필요하다
-  apt-get update -qq
-  apt-get install -y -qq python3-venv >/dev/null
+  # python3은 이미지에 없고 파드 재시작 시 사라지므로 매번 확인한다.
+  command -v python3 >/dev/null 2>&1 || apk add --no-cache python3 >/dev/null
   rm -rf "${VENV}"
   python3 -m venv "${VENV}"
   "${VENV}/bin/pip" install --quiet "yamllint==${VERSION}"
