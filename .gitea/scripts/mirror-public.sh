@@ -8,6 +8,7 @@
 #
 # kustomization.yaml의 resources 항목에 마커가 붙으면 참조 경로까지 삭제한다.
 # 삭제한 이름이 트리나 커밋 제목에 남아 있으면 push 전에 실패한다.
+# 단, 문서(.md)는 예외로 허용한다.
 set -euo pipefail
 
 [ -z "${GITHUB_COM_TOKEN:-}" ] && { echo "GITHUB_COM_TOKEN not set, skip"; exit 0; }
@@ -129,6 +130,9 @@ leaked=0
 MIRROR_FILES="${WORK_DIR}/mirror-files"
 list_text_files > "${MIRROR_FILES}"
 
+TOKEN_FILES="${WORK_DIR}/token-files"
+grep -v '\.md$' "${MIRROR_FILES}" > "${TOKEN_FILES}" || true
+
 # xargs 종료 코드는 배치가 나뉘면 신뢰할 수 없으므로 출력 유무로 판정한다.
 hits=$(xargs -r -d '\n' grep -nHE "${RE_PRIVATE_LINE}|${RE_BLOCK_BEGIN}|${RE_BLOCK_END}" < "${MIRROR_FILES}" || true)
 if [ -n "${hits}" ]; then
@@ -139,7 +143,7 @@ fi
 
 while IFS= read -r token; do
   [ -n "$token" ] || continue
-  hits=$(xargs -r -d '\n' grep -nHiF "$token" < "${MIRROR_FILES}" || true)
+  hits=$(xargs -r -d '\n' grep -nHiF "$token" < "${TOKEN_FILES}" || true)
   if [ -n "${hits}" ]; then
     printf '%s\n' "${hits}" >&2
     echo "ERROR: private resource name '${token}' leaked into mirror tree" >&2
