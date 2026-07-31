@@ -15,4 +15,5 @@ resources:
   - networking
   - observability
   - security
+  - security/infisical.yaml
   - storage
