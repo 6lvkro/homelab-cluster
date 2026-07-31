@@ -8,6 +8,7 @@ components:
   - ../components/strategy-recreate
 
 resources:
+  - mariadb.yaml
   - postgres.yaml
   - redis.yaml
   - secrets.yaml
@@ -16,3 +17,6 @@ configMapGenerator:
   - name: postgres-init
     files:
       - postgres/init-databases.sh
+  - name: mariadb-init
+    files:
+      - mariadb/init-databases.sql

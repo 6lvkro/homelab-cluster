@@ -1,4 +1,5 @@
-# VectorChord(vchord) 벡터 확장 포함 공유 DB (immich v3 필수, pgvecto.rs 후속)
+# VectorChord(vchord) 벡터 확장 포함 공유 DB
+# DB/유저 생성은 postgres/init-databases.sh에서 앱별로 관리
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:

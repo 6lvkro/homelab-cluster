@@ -1,0 +1,104 @@
+# MySQL 프로토콜을 요구하는 앱용 공유 DB
+# DB/유저 생성은 mariadb/init-databases.sql에서 앱별로 관리
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mariadb
+  namespace: default
+  labels:
+    app: mariadb
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mariadb
+  namespace: default
+  labels:
+    app: mariadb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mariadb
+  template:
+    metadata:
+      labels:
+        app: mariadb
+      annotations:
+        backup.velero.io/backup-volumes: data
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: ${NODE_STORAGE}
+      containers:
+        - name: mariadb
+          image: mariadb:11.8.8
+          ports:
+            - containerPort: 3306
+              name: db
+          env:
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb
+                  key: DB_PASSWORD_MARIADB
+            - name: MARIADB_AUTO_UPGRADE
+              value: "1"
+            - name: TZ
+              value: "${TZ}"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "256Mi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
+          livenessProbe:
+            exec:
+              command: ["healthcheck.sh", "--su-mysql", "--connect"]
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          startupProbe:
+            exec:
+              command: ["healthcheck.sh", "--su-mysql", "--connect", "--innodb_initialized"]
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["healthcheck.sh", "--su-mysql", "--connect", "--innodb_initialized"]
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: mariadb
+        - name: init-scripts
+          configMap:
+            name: mariadb-init
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mariadb
+  namespace: default
+  labels:
+    app: mariadb
+spec:
+  selector:
+    app: mariadb
+  ports:
+    - name: db
+      port: 3306
+      targetPort: db

@@ -1,0 +1,2 @@
+-- MariaDB 최초 초기화 시 서비스별 DB/유저 생성
+-- 데이터 디렉터리가 비어있을 때만 docker-entrypoint-initdb.d에 의해 실행
